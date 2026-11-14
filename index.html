@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dark Sky Sites Without a Car</title>
+<style>
+body{font-family:Georgia,serif;background:#16202e;color:#e8e4d4;margin:0;padding:16px;max-width:900px;margin:auto}
+h1{font-size:1.4rem;margin:.2em 0}
+p.n{color:#aab;font-size:.9rem}
+#banner{padding:6px 10px;border-radius:6px;margin:8px 0;font-size:.9rem}
+.ok{background:#27502f}.bad{background:#7a2a2a}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+button{background:#f0d98a;border:0;border-radius:6px;padding:8px 12px;font:inherit;cursor:pointer}
+button[aria-pressed=true]{background:#fff;outline:3px solid #7fb3ff}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{border-bottom:1px solid #345;padding:8px;text-align:left;vertical-align:top;font-size:.95rem}
+th{background:#22324a}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.8rem;color:#111}
+.train{background:#8fd694}.bus{background:#f0d98a}.none{background:#e59a9a}
+.unk{color:#f0b070;font-style:italic}
+</style></head><body>
+<h1>Dark sky sites I can reach without a car</h1>
+<p class="n">Pinned at the café, #73. Clear sky for the Ursids, so this is for planning. Times marked "unknown" are ones I haven't been able to confirm. Check the timetable before going, and never trust a last bus I wrote down from memory.</p>
+<div id="banner" role="status"></div>
+<div class="ctl" role="group" aria-label="Sort order">
+<button data-s="access" aria-pressed="true">Best access first</button>
+<button data-s="dist" aria-pressed="false">Nearest first</button>
+<button data-s="name" aria-pressed="false">Name</button>
+</div>
+<div class="tablewrap"><table><caption class="n" style="text-align:left">Sites sorted as chosen above</caption>
+<thead><tr><th>Site</th><th>Access</th><th>Km from town</th><th>Outbound</th><th>Last back</th><th>Walk at end</th></tr></thead>
+<tbody id="rows"></tbody></table></div>
+<script>
+// access rank: 0 train, 1 bus, 2 none. km null = unknown. times are strings "HH:MM" or null
+const SITES=[
+{name:"Reservoir hill (edge of town)",access:"bus",rank:1,km:4,out:null,back:null,walk:"10 min"},
+{name:"Marsh Lane nature reserve",access:"bus",rank:1,km:12,out:null,back:null,walk:"20 min"},
+{name:"Old quarry lookout",access:"none",rank:2,km:18,out:null,back:null,walk:"whole way"},
+{name:"Heath station field",access:"train",rank:0,km:25,out:null,back:null,walk:"15 min"},
+{name:"Coast cliff car park",access:"bus",rank:1,km:30,out:null,back:null,walk:"5 min"}
+];
+function validTime(t){if(t===null)return true;const m=/^(\d\d):(\d\d)$/.exec(t);return !!m&&+m[1]<24&&+m[2]<60}
+function validSite(s){return !!s.name&&[0,1,2].includes(s.rank)&&(s.km===null||(typeof s.km==="number"&&s.km>=0))&&validTime(s.out)&&validTime(s.back)}
+function sortSites(list,mode){
+ const a=list.filter(validSite).slice();
+ const km=s=>s.km===null?1e9:s.km;
+ if(mode==="access")a.sort((x,y)=>x.rank-y.rank||km(x)-km(y));
+ else if(mode==="dist")a.sort((x,y)=>km(x)-km(y));
+ else a.sort((x,y)=>x.name.localeCompare(y.name));
+ return a}
+function selfTest(){
+ const t=[
+ ["access puts train first",sortSites(SITES,"access")[0].access==="train"],
+ ["access ties by km",(()=>{const r=sortSites(SITES,"access").filter(s=>s.rank===1).map(s=>s.km);return r.every((v,i)=>i===0||r[i-1]<=v)})()],
+ ["dist nearest first",sortSites(SITES,"dist")[0].km===4],
+ ["bad time rejected",!validTime("25:00")&&validTime("23:59")&&validTime("00:00")&&!validTime("9:5")],
+ ["bad site filtered",sortSites([{name:"x",rank:1,km:-2,out:null,back:null}],"dist").length===0],
+ ["unknown km sorts last",sortSites([{name:"a",rank:1,km:null,out:null,back:null},{name:"b",rank:1,km:3,out:null,back:null}],"dist")[0].name==="b"]];
+ return t}
+function render(mode){
+ const tb=document.getElementById("rows");tb.innerHTML="";
+ sortSites(SITES,mode).forEach(s=>{
+  const tr=document.createElement("tr");
+  const cell=(v,unk)=>{const td=document.createElement("td");if(v==null){td.textContent="unknown";td.className="unk"}else td.textContent=v;tr.appendChild(td);return td};
+  cell(s.name);
+  const td=document.createElement("td");const sp=document.createElement("span");sp.className="tag "+s.access;sp.textContent=s.access==="none"?"no public transport":s.access;td.appendChild(sp);tr.appendChild(td);
+  cell(s.km==null?null:s.km+" km");cell(s.out);cell(s.back);cell(s.walk);
+  tb.appendChild(tr)})}
+document.querySelectorAll(".ctl button").forEach(b=>b.onclick=()=>{
+ document.querySelectorAll(".ctl button").forEach(x=>x.setAttribute("aria-pressed",x===b));render(b.dataset.s)});
+const bn=document.getElementById("banner");
+try{const r=selfTest(),f=r.filter(x=>!x[1]);
+ bn.className=f.length?"bad":"ok";bn.textContent=f.length?"Failed: "+f.map(x=>x[0]).join(", "):"All "+r.length+" checks pass"}
+catch(e){bn.className="bad";bn.textContent="Self-test crashed: "+e.message}
+render("access");
+</script></body></html>
